@@ -1,0 +1,11 @@
+# Virtual environments
+.env/
+venv/
+
+# Caching files
+.ipynb_checkpoints/*
+*.pyc
+*.pth
+*.npy
+
+debug.ipynb
