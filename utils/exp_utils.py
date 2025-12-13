@@ -1,13 +1,14 @@
 import numpy as np
 import torch
 
-from dynamics import PlanarQuadDynamicsWithDrag, PlanarQuadDynamics
+from controller.dynamics import PlanarQuadDynamicsWithDrag, PlanarQuadDynamics
 import utils.sim_utils as sim_utils
-import training
-import nmpc
-import evaluation
-from evaluation import generate_ellipse_reference, generate_lemniscate_reference
-import flatness
+import learning.train as train
+from learning.models import FlatResidualModel
+import controller.nmpc as nmpc
+import utils.eval_utils as eval_utils
+from utils.eval_utils import generate_ellipse_reference, generate_lemniscate_reference
+import controller.flatness as flatness
 import utils.control_utils as control_utils
 
 import scipy.linalg as spl
@@ -33,9 +34,9 @@ def train_models(exp_seed, quad_params, data_params, training_params):
     )
 
     # Train a neural network model
-    residual_model = training.FlatResidualModel(hidden_dims=training_params['hidden_dims'])
+    residual_model = FlatResidualModel(hidden_dims=training_params['hidden_dims'])
     device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
-    residual_model = training.train_finite_difference(
+    residual_model = train.train_finite_difference(
         x_samples, u_samples, data_params['dt'], nominal_dynamics.dot_fn, residual_model,
         lr=training_params['learning_rate'],
         epochs=training_params['num_epochs'],
@@ -47,7 +48,7 @@ def train_models(exp_seed, quad_params, data_params, training_params):
 
 def load_model(model_path, training_params):
     hidden_dims = training_params['hidden_dims']
-    residual_model = training.FlatResidualModel(hidden_dims=hidden_dims)
+    residual_model = FlatResidualModel(hidden_dims=hidden_dims)
     residual_model.load_state_dict(torch.load(model_path))
     return residual_model
 
@@ -59,7 +60,7 @@ def eval_open_loop(name, residual_model, quad_params, sim_params):
     )
 
     def fcl_ellipse(x, t):
-        zt = evaluation._zt_ellipse(
+        zt = eval_utils._zt_ellipse(
             torch.tensor(t),
             sim_params['ellipse_axes'][0],
             sim_params['ellipse_axes'][1],
@@ -69,7 +70,7 @@ def eval_open_loop(name, residual_model, quad_params, sim_params):
         return true_dynamics.dot_fn(x, ut)[0]
 
     def fcl_lem(x, t):
-        zt = evaluation._zt_lemniscate(
+        zt = eval_utils._zt_lemniscate(
             torch.tensor(t),
             sim_params['lemniscate_axes'][0],
             sim_params['lemniscate_axes'][1],

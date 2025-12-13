@@ -1,9 +1,10 @@
+import argparse
 import numpy as np
 import torch
 import torch.nn as nn
-import exp_utils
+import utils.exp_utils as exp_utils
 
-from dynamics import PlanarQuadDynamicsWithDrag
+from controller.dynamics import PlanarQuadDynamicsWithDrag
 
 quad_params = {
     'm_quad': 1.0,
@@ -60,52 +61,62 @@ closed_loop_sim_params = {
     'u_noise_std': torch.tensor([1e-2, 1e-3]),
 }
 
-num_experiments = 30
+num_experiments = 3
 if __name__ == '__main__':
 
-    # # Train models
-    # for seed in range(num_experiments):
-    #     exp_utils.train_models(seed, quad_params, data_params, training_params)
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--train', action="store_true")
+    parser.add_argument('--eval_open_loop', action="store_true")
+    parser.add_argument('--eval_closed_loop', action="store_true")
+    args = parser.parse_args()
 
-    # ########################
-    # # Open-loop evaluation #
-    # ########################
-    # print('-'*10, 'Open-loop evaluation', '-'*10)
+    # Train models
+    if args['train']:
+        for seed in range(num_experiments):
+            exp_utils.train_models(seed, quad_params, data_params, training_params)
 
-    # # On nominal flat maps
-    # exp_utils.eval_open_loop('nominal', None, quad_params, open_loop_sim_params)
+    ########################
+    # Open-loop evaluation #
+    ########################
+    if args['eval_open_loop']:
+        print('-'*10, 'Open-loop evaluation', '-'*10)
 
-    # # On true flat maps
-    # class TrueResidualWrapper(nn.Module):
-    #     def __init__(self, quad_params):
-    #         super().__init__()
-    #         self.true_dynamics = PlanarQuadDynamicsWithDrag(**quad_params)
+        # On nominal flat maps
+        exp_utils.eval_open_loop('nominal', None, quad_params, open_loop_sim_params)
 
-    #     def forward(self, x):
-    #         res = torch.cat((torch.zeros_like(x), torch.zeros_like(x[..., :2])), dim=-1)
-    #         res[..., 2:4] += self.true_dynamics.drag(
-    #             torch.cat((x, torch.zeros_like(x[..., :2])), dim=-1)
-    #         )
-    #         return res
-    # exp_utils.eval_open_loop(
-    #     'true', TrueResidualWrapper(quad_params), quad_params, open_loop_sim_params
-    # )
+        # On true flat maps
+        class TrueResidualWrapper(nn.Module):
+            def __init__(self, quad_params):
+                super().__init__()
+                self.true_dynamics = PlanarQuadDynamicsWithDrag(**quad_params)
 
-    # # On learned residual models
-    # for seed in range(num_experiments):
-    #     model_path = f'models/residual_model_{seed}.pth'
-    #     residual_model = exp_utils.load_model(model_path, training_params)
-    #     exp_utils.eval_open_loop(
-    #         f'learned_{seed}', residual_model, quad_params, open_loop_sim_params
-    #     )
+            def forward(self, x):
+                res = torch.cat((torch.zeros_like(x), torch.zeros_like(x[..., :2])), dim=-1)
+                res[..., 2:4] += self.true_dynamics.drag(
+                    torch.cat((x, torch.zeros_like(x[..., :2])), dim=-1)
+                )
+                return res
+
+        exp_utils.eval_open_loop(
+            'true', TrueResidualWrapper(quad_params), quad_params, open_loop_sim_params
+        )
+
+        # On learned residual models
+        for seed in range(num_experiments):
+            model_path = f'models/residual_model_{seed}.pth'
+            residual_model = exp_utils.load_model(model_path, training_params)
+            exp_utils.eval_open_loop(
+                f'learned_{seed}', residual_model, quad_params, open_loop_sim_params
+            )
 
     # Closed-loop evaluation
-    print('-'*10, 'Closed-loop evaluation', '-'*10)
-    for seed in range(num_experiments):
-        exp_utils.eval_closed_loop(
-            seed,
-            f'models/residual_model_{seed}.pth',
-            quad_params,
-            training_params,
-            closed_loop_sim_params
-        )
+    if args['eval_closed_loop']:
+        print('-'*10, 'Closed-loop evaluation', '-'*10)
+        for seed in range(num_experiments):
+            exp_utils.eval_closed_loop(
+                seed,
+                f'models/residual_model_{seed}.pth',
+                quad_params,
+                training_params,
+                closed_loop_sim_params
+            )

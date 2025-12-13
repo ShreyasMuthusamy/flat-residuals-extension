@@ -1,5 +1,49 @@
 import torch
+from torch.utils.data import DataLoader, Dataset, random_split
 from utils.sim_utils import rk4_step
+from utils.sim_utils import rk4_step
+
+
+class ResidualDataset(Dataset):
+    def __init__(self, xtrajs, utrajs, dynamics_fn, dt):
+        self.dynamics_fn = dynamics_fn
+        self.dt = dt
+        residual = self.finite_diff_residual(xtrajs, utrajs)
+        x = torch.cat([xtrajs[:, :-1], utrajs], dim=-1)
+        self.x = x.reshape(-1, x.shape[-1]).float()
+
+        # Normalize the residual
+        self.residual = residual.reshape(-1, residual.shape[-1]).float()
+        self.residual_mean = self.residual.mean(dim=0)
+        self.residual_std = self.residual.std(dim=0) + 1e-6
+        # self.residual = (residual - self.residual_mean) / self.residual_std
+
+    def finite_diff_residual(self, xtraj, utraj):
+        """Approximate the residual of the unicycle dynamics with finite difference
+        x is a trajectory of shape (num_samples, num_steps + 1, Nx)
+        u is a trajectory of shape (num_samples, num_steps, Nu)
+        """
+        num_samples, num_steps, _ = utraj.shape
+        res = torch.zeros_like(xtraj[:, :-1])
+        for t in range(num_steps):
+            pred_next = rk4_step(self.dynamics_fn, xtraj[:, t], utraj[:, t], self.dt)[0]
+            res[:, t] = (xtraj[:, t + 1] - pred_next) / self.dt
+        return res
+
+    def __len__(self):
+        return self.x.shape[0]
+
+    def __getitem__(self, idx):
+        return self.x[idx], self.residual[idx]
+
+
+def get_data_loaders(dataset, train_frac=0.8, batch_size=128, num_workers=4):
+    num_train = int(train_frac * len(dataset))
+    num_val = len(dataset) - num_train
+    train_dataset, val_dataset = random_split(dataset, [num_train, num_val])
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
+    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
+    return train_loader, val_loader
 
 
 def sample_trajectories(
