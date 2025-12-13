@@ -36,23 +36,28 @@ class FlatResidualModel(nn.Module):
 
     def __init__(self, hidden_dims=[16], activation=nn.GELU):
         super(FlatResidualModel, self).__init__()
-        input_dim, output_dim = 2, 4
-        layers = []
-        dims = [input_dim] + hidden_dims + [output_dim]
-        for i in range(len(dims) - 1):
-            layers.append(nn.Linear(dims[i], dims[i + 1]))
-            if i < len(dims) - 2:
-                layers.append(activation())
-        self.model = nn.Sequential(*layers)
-        self.y_mean = nn.Parameter(torch.zeros(6), requires_grad=False)
-        self.y_std = nn.Parameter(torch.zeros(6), requires_grad=False)
+        substate_dim, output_dim = 2, 6
+        num_substates = int(output_dim / substate_dim)
+        self.subresiduals = nn.ModuleList()
+        for i in range(num_substates):
+            layers = []
+            dims = [substate_dim * (i+1)] + hidden_dims + [substate_dim]
+            for i in range(len(dims) - 1):
+                layers.append(nn.Linear(dims[i], dims[i + 1]))
+                if i < len(dims) - 2:
+                    layers.append(activation())
+            model = nn.Sequential(*layers)
+            self.subresiduals.append(model)
+        self.y_mean = nn.Parameter(torch.zeros(output_dim), requires_grad=False)
+        self.y_std = nn.Parameter(torch.zeros(output_dim), requires_grad=False)
 
     def forward(self, xu):
-        ret = self.model(xu[..., 2:4])  # only position and velocity
+        ret = []
+        for i, m in enumerate(self.subresiduals):
+            idx = 2 * (i + 1)
+            ret.append(m(xu[..., :idx]))  # only position and velocity
         # Pad the first two entries with zeros
-        ret = torch.cat([torch.zeros_like(xu[..., :2]), ret], dim=-1)
-        # ret[..., :2] = 0
-        # ret[..., 4:] = 0
+        ret = torch.cat(ret, dim=-1)
         if self.y_mean is not None:
             ret = ret * self.y_std + self.y_mean
         return ret
