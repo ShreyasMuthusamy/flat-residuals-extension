@@ -62,7 +62,7 @@ class FlatnessController:
             else:
                 z, v = torch.tensor(z_np).float(), torch.tensor(v_np).float()
             in_dim, out_dim = 4, 6  # input and output dimensions of the model
-            model_inputs = z[:, :4]
+            model_inputs = z[:,:4]
             out = self.model(model_inputs).numpy()
             batched_jacobian = torch.vmap(torch.func.jacrev(self.model))(model_inputs)
             batched_hessian = torch.vmap(torch.func.hessian(self.model))(model_inputs)

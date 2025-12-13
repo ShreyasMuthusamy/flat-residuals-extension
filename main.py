@@ -38,7 +38,7 @@ data_params = {
 training_params = {
     'hidden_dims': [32],
     'batch_size': 128,
-    'num_epochs': 1,
+    'num_epochs': 20,
     'learning_rate': 4e-3,
 }
 
@@ -76,6 +76,7 @@ if __name__ == '__main__':
         os.makedirs('./models/', exist_ok=True)
         for seed in range(num_experiments):
             exp_utils.train_models(seed, quad_params, data_params, training_params)
+        print('')
 
     ########################
     # Open-loop evaluation #
@@ -84,25 +85,25 @@ if __name__ == '__main__':
         os.makedirs('./results/open-loop/', exist_ok=True)
         print('-'*10, 'Open-loop evaluation', '-'*10)
 
-        # # On nominal flat maps
-        # exp_utils.eval_open_loop('nominal', None, quad_params, open_loop_sim_params)
+        # On nominal flat maps
+        exp_utils.eval_open_loop('nominal', None, quad_params, open_loop_sim_params)
 
-        # # On true flat maps
-        # class TrueResidualWrapper(nn.Module):
-        #     def __init__(self, quad_params):
-        #         super().__init__()
-        #         self.true_dynamics = PlanarQuadDynamicsWithDrag(**quad_params)
+        # On true flat maps
+        class TrueResidualWrapper(nn.Module):
+            def __init__(self, quad_params):
+                super().__init__()
+                self.true_dynamics = PlanarQuadDynamicsWithDrag(**quad_params)
 
-        #     def forward(self, x):
-        #         res = torch.cat((torch.zeros_like(x), torch.zeros_like(x[..., :2])), dim=-1)
-        #         res[..., 2:4] += self.true_dynamics.drag(
-        #             torch.cat((x, torch.zeros_like(x[..., :2])), dim=-1)
-        #         )
-        #         return res
+            def forward(self, x):
+                res = torch.cat((torch.zeros_like(x), torch.zeros_like(x[..., :2])), dim=-1)
+                res[..., 2:4] += self.true_dynamics.drag(
+                    torch.cat((x, torch.zeros_like(x[..., :2])), dim=-1)
+                )
+                return res
 
-        # exp_utils.eval_open_loop(
-        #     'true', TrueResidualWrapper(quad_params), quad_params, open_loop_sim_params
-        # )
+        exp_utils.eval_open_loop(
+            'true', TrueResidualWrapper(quad_params), quad_params, open_loop_sim_params
+        )
 
         # On learned residual models
         for seed in range(num_experiments):
