@@ -68,7 +68,7 @@ if __name__ == '__main__':
     parser.add_argument('--train', action="store_true")
     parser.add_argument('--eval_open_loop', action="store_true")
     parser.add_argument('--eval_closed_loop', action="store_true")
-    parser.add_argument('--num_models', type=int, default=3)
+    parser.add_argument('--num_models', type=int, default=1)
     args = parser.parse_args()
 
     # Train models
