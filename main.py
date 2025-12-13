@@ -62,19 +62,19 @@ closed_loop_sim_params = {
     'u_noise_std': torch.tensor([1e-2, 1e-3]),
 }
 
-num_experiments = 1
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--train', action="store_true")
     parser.add_argument('--eval_open_loop', action="store_true")
     parser.add_argument('--eval_closed_loop', action="store_true")
+    parser.add_argument('--num_models', type=int, default=3)
     args = parser.parse_args()
 
     # Train models
     if args.train:
         os.makedirs('./models/', exist_ok=True)
-        for seed in range(num_experiments):
+        for seed in range(args.num_models):
             exp_utils.train_models(seed, quad_params, data_params, training_params)
         print('')
 
@@ -106,7 +106,7 @@ if __name__ == '__main__':
         )
 
         # On learned residual models
-        for seed in range(num_experiments):
+        for seed in range(args.num_models):
             model_path = f'models/residual_model_{seed}.pth'
             residual_model = exp_utils.load_model(model_path, training_params)
             exp_utils.eval_open_loop(
@@ -117,7 +117,7 @@ if __name__ == '__main__':
     if args.eval_closed_loop:
         os.makedirs('./results/closed-loop/', exist_ok=True)
         print('-'*10, 'Closed-loop evaluation', '-'*10)
-        for seed in range(num_experiments):
+        for seed in range(args.num_models):
             exp_utils.eval_closed_loop(
                 seed,
                 f'models/residual_model_{seed}.pth',
