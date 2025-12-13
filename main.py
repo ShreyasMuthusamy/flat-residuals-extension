@@ -1,4 +1,5 @@
 import argparse
+import os
 import numpy as np
 import torch
 import torch.nn as nn
@@ -71,14 +72,16 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     # Train models
-    if args['train']:
+    if args.train:
+        os.makedirs('./models/', exist_ok=True)
         for seed in range(num_experiments):
             exp_utils.train_models(seed, quad_params, data_params, training_params)
 
     ########################
     # Open-loop evaluation #
     ########################
-    if args['eval_open_loop']:
+    if args.eval_open_loop:
+        os.makedirs('./results/open-loop/', exist_ok=True)
         print('-'*10, 'Open-loop evaluation', '-'*10)
 
         # On nominal flat maps
@@ -110,7 +113,8 @@ if __name__ == '__main__':
             )
 
     # Closed-loop evaluation
-    if args['eval_closed_loop']:
+    if args.eval_closed_loop:
+        os.makedirs('./results/closed-loop/', exist_ok=True)
         print('-'*10, 'Closed-loop evaluation', '-'*10)
         for seed in range(num_experiments):
             exp_utils.eval_closed_loop(
