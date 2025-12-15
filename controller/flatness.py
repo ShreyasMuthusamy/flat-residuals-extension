@@ -19,19 +19,10 @@ def third_derivative(f, x):
 
 
 class FlatnessController:
-    def __init__(self, model, quad_params, reference, controller, observer, dt):
+    def __init__(self, model, reference, controller, observer, dt):
         self.model = model
 
-        # Load quad params
-        self.m_quad = quad_params['m_quad']
-        self.I_quad = quad_params['I_quad']
-        self.g = quad_params['g']
-        self.F_max = quad_params['F_max']
-        self.tau_max = quad_params['tau_max']
-
         self.reference = reference
-        assert self.reference.shape[1] == 10, \
-            "Invalid reference shape, reference should be Tx10"
         self.dt = dt
 
         AB = spl.expm(dt * np.eye(5, k=1))
@@ -56,6 +47,44 @@ class FlatnessController:
             return np.hstack([z, v]) @ self.A_flat[:8].T
 
     def compute_perturbations(self, z_np, v_np):
+        raise NotImplementedError('compute_perturnbations() method has not been implemented!')
+
+    def z2x_model(self, z, v):
+        raise NotImplementedError('z2x_model() method has not been implemented!')
+
+    def z2u_model(self, z, v, return_out=False):
+        raise NotImplementedError('z2u_model() method has not been implemented!')
+
+    def x2z(self, x, u):
+        """
+        Convert the state and control input to the flat state.
+        Args:
+            x: The current state of the system: [x, y, x_dot, y_dot, theta, theta_dot]
+            u: The current control input
+        Returns:
+            The flat state of the system: [x, y, x_dot, y_dot, x_ddot, y_ddot, x_dddot, y_dddot]
+        """
+        raise NotImplementedError('x2z() method has not been implemented!')
+
+    def control(self, state):
+        raise NotImplementedError('control() method has not been implemented!')
+
+    def reset(self):
+        raise NotImplementedError('reset() method has not been implemented!')
+
+
+class FlatQuadrotorController(FlatnessController):
+    def __init__(self, model, quad_params, reference, controller, observer, dt):
+        super().__init__(model, reference, controller, observer, dt)
+
+        # Load quad params
+        self.m_quad = quad_params['m_quad']
+        self.I_quad = quad_params['I_quad']
+        self.g = quad_params['g']
+        self.F_max = quad_params['F_max']
+        self.tau_max = quad_params['tau_max']
+
+    def compute_perturbations(self, z_np, v_np):
         with torch.no_grad():
             if isinstance(z_np, torch.Tensor):
                 z, v = z_np, v_np
@@ -68,7 +97,6 @@ class FlatnessController:
             batched_hessian = torch.vmap(torch.func.hessian(self.model))(model_inputs)
             input_dot = z[:, 2:6]
             input_ddot = z[:, 4:8]
-            input_dddot = torch.cat((z[:, 6:8], v), dim=1)
             # First order derivatives
             out_dot = (
                 torch.bmm(batched_jacobian, input_dot.unsqueeze(-1)).flatten(1).numpy()
@@ -82,31 +110,16 @@ class FlatnessController:
                 torch.bmm(batched_jacobian, input_ddot.unsqueeze(-1)).flatten(1).numpy()
                 + torch.bmm(batched_jac_dt, input_dot.unsqueeze(-1)).flatten(1).numpy()
             )
-            # Third order derivatives
-            # batched_third = torch.vmap(lambda x: third_derivative(self.model, x))(model_inputs)
-            # term1 = torch.einsum("i m a b c, i a, i b, i c -> i m",
-            #                      batched_third, input_dot, input_dot, input_dot)
-            # term2 = 3.0 * torch.einsum("i m a b, i a, i b -> i m",
-            #                            batched_hessian, input_dot, input_ddot)
-            # term3 = torch.bmm(batched_jacobian, input_dddot.unsqueeze(-1)
-            #                   ).squeeze(-1)  # shape (batch, out_dim)
-            # out_dddot = (term1 + term2 + term3).numpy()
-        return out, out_dot, out_ddot  # , out_dddot
+        return out, out_dot, out_ddot
 
     def z2x_model(self, z, v):
         if self.model is not None:
-            out, out_dot, out_ddot = self.compute_perturbations(z, v)
+            out, out_dot, _ = self.compute_perturbations(z, v)
             zpert = np.hstack([
                 np.zeros_like(z[:, :4]),
                 out[:, 2:4],
                 out_dot[:, 2:4]
             ])
-            # zpert = np.hstack([
-            #     np.zeros_like(z[:, :2]),
-            #     out[:, :2],
-            #     out[:, 2:4] + out_dot[:, :2],
-            #     out_dot[:, 2:4] + out_ddot[:, :2],
-            # ])
             ztilde = z - zpert
         else:
             ztilde = z
@@ -134,12 +147,6 @@ class FlatnessController:
                 out[:, 2:4],
                 out_dot[:, 2:4]
             ])
-            # zpert = np.hstack([
-            #     np.zeros_like(z[:, :2]),
-            #     out[:, :2],
-            #     out[:, 2:4] + out_dot[:, :2],
-            #     out_dot[:, 2:4] + out_ddot[:, :2],
-            # ])
             ztilde = z - zpert
             vtilde = v - out_ddot[:, 2:4]
         else:
@@ -181,34 +188,6 @@ class FlatnessController:
         z[6:8] = np.array([-u[0] * np.cos(x[4]) * x[5], -u[0] * np.sin(x[4]) * x[5]]) / self.m_quad
         return z
 
-    def adjust_for_saturation(self, z, v, u_bar):
-        raise NotImplementedError("This method is defunct")
-        if self.model is not None:
-            out, out_dot, out_ddot, out_dddot = self.compute_perturbations(z, v)
-            zpert = np.hstack([
-                np.zeros_like(z[:, :2]),
-                out[:, :2],
-                out[:, 2:4] + out_dot[:, :2],
-                out_dot[:, 2:4] + out_ddot[:, :2],
-            ])
-            ztilde = z - zpert
-            vtilde = v - out_ddot[:, 2:4] - out_dddot[:, :2]
-        else:
-            ztilde = z
-            vtilde = v
-
-        # Adjust both u2 and v for saturation
-        thrust_used = self.z2u_model(ztilde, vtilde)[0, 0]
-        if thrust_used > self.F_max:
-            ztilde[:, 4] = ztilde[:, 4] / thrust_used * self.F_max
-            ztilde[:, 5] = (ztilde[:, 5] + self.g) / thrust_used * self.F_max - self.g
-        u = self.z2u_model(ztilde, vtilde)
-        delta_tau = u_bar[:, 1] - u[:, 1]
-        v_bar = vtilde + np.hstack((-ztilde[:, 5] - self.g, ztilde[:, 4])) * delta_tau / self.I_quad
-
-        v_bar = vtilde
-        return v_bar
-
     def control(self, state):
         # Even though we take in the state, we assume we can only observe the first four
         # values of the state vector. The rest are estimated.
@@ -249,5 +228,70 @@ class FlatnessController:
         if self.observer is not None:
             self.observer.x_hat = self.z_estimate[:, None]
         # self.z_estimate = np.concatenate((self.reference[0, :4], np.zeros(4)))
+        self.t = 0
+        self.prev_u = None
+
+
+class FlatExampleController(FlatnessController):
+    def __init__(self, model, reference, controller, observer, dt):
+        super().__init__(model, reference, controller, observer, dt)
+
+    def z2x_model(self, z, v):
+        if self.model is not None:
+            with torch.no_grad():
+                zpert = self.model(z).numpy()
+            ztilde = z - zpert
+        else:
+            ztilde = z
+        x = np.vstack(
+            [
+                ztilde[:, 0] + np.sqrt(ztilde[:, 1]),
+                np.sqrt(ztilde[:, 1])
+            ]
+        ).T
+        return x
+
+    def z2u_model(self, z, v, return_out=False):
+        EPS = 1e-6
+        if self.model is not None:
+            with torch.no_grad():
+                zpert = self.model(z).numpy()
+            ztilde = z - zpert
+        else:
+            ztilde = z
+        vtilde = v
+        u = vtilde / (2 * np.sqrt(ztilde[:, 1]))
+        return u
+
+    def x2z(self, x, u):
+        """
+        Convert the state and control input to the flat state.
+        Args:
+            x: The current state of the system: [x1, x2]
+            u: The current control input
+        Returns:
+            The flat state of the system: [x1 - x2, x2^2]
+        """
+        z = np.zeros_like(x)
+        z[0] = x[0] - x[1]
+        z[1] = np.square(x[1])
+        return z
+
+    def control(self, state):
+        # For simplicity, we assume that we have perfect knowledge of the state in our observations
+        # Compute flat input with PD correction
+        z_diff = state - self.reference[self.t][:2]
+        v_cmd = self.reference[self.t][2:] - self.controller.control(z_diff[:, None])[:, 0]
+
+        # Compute nominal feedforward control
+        u_cmd = self.z2u_model(state[None, :], v_cmd[None, :])[0]
+
+        self.t += 1
+        return u_cmd
+
+    def reset(self):
+        self.z_estimate = self.reference[0, :4]
+        if self.observer is not None:
+            self.observer.x_hat = self.z_estimate[:, None]
         self.t = 0
         self.prev_u = None

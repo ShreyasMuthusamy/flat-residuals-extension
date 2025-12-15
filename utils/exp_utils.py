@@ -55,7 +55,7 @@ def load_model(model_path, training_params):
 
 def eval_open_loop(name, residual_model, quad_params, sim_params):
     true_dynamics = PlanarQuadDynamicsWithDrag(**quad_params)
-    ctrl = flatness.FlatnessController(
+    ctrl = flatness.FlatQuadrotorController(
         residual_model, quad_params, torch.zeros((1, 10)), None, None, sim_params['dt']
     )
 
@@ -148,7 +148,7 @@ def eval_closed_loop(seed, model_path, quad_params, training_params, sim_params)
             A_single, B_single, C_single, sim_params['observer_poles'], x0_hat=ref[0, :8].numpy()
         )
 
-        learned_ctrl = flatness.FlatnessController(
+        learned_ctrl = flatness.FlatQuadrotorController(
             residual_model,
             quad_params,
             ref.numpy(),
@@ -156,7 +156,7 @@ def eval_closed_loop(seed, model_path, quad_params, training_params, sim_params)
             linear_observer,
             sim_params['dt']
         )
-        nominal_ctrl = flatness.FlatnessController(
+        nominal_ctrl = flatness.FlatQuadrotorController(
             None, quad_params, ref.numpy(), linear_controller, linear_observer, sim_params['dt']
         )
         x0 = torch.tensor(learned_ctrl.z2x_model(*torch.split(ref[:1], 8, dim=1))[0])
