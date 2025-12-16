@@ -4,7 +4,7 @@ import torch
 from controller.dynamics import PlanarQuadDynamicsWithDrag, PlanarQuadDynamics
 import utils.sim_utils as sim_utils
 import learning.train as train
-from learning.models import FlatResidualModel
+from learning.models import FullResidualModel, FlatResidualModel
 import controller.nmpc as nmpc
 import utils.eval_utils as eval_utils
 from utils.eval_utils import generate_ellipse_reference, generate_lemniscate_reference
@@ -34,7 +34,7 @@ def train_models(exp_seed, quad_params, data_params, training_params):
     )
 
     # Train a neural network model
-    residual_model = FlatResidualModel(hidden_dims=training_params['hidden_dims'])
+    residual_model = FullResidualModel(hidden_dims=training_params['hidden_dims'])
     device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
     residual_model = train.train_finite_difference(
         x_samples, u_samples, data_params['dt'], nominal_dynamics.dot_fn, residual_model,
@@ -48,7 +48,7 @@ def train_models(exp_seed, quad_params, data_params, training_params):
 
 def load_model(model_path, training_params):
     hidden_dims = training_params['hidden_dims']
-    residual_model = FlatResidualModel(hidden_dims=hidden_dims)
+    residual_model = FullResidualModel(hidden_dims=hidden_dims)
     residual_model.load_state_dict(torch.load(model_path))
     return residual_model
 

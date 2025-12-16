@@ -20,7 +20,7 @@ quad_params = {
 data_params = {
     # 'num_samples': 5000,
     # 'Tf': 0.3,
-    'num_samples': 5000,
+    'num_samples': 256,
     'Tf': 0.3,
     'x_min': torch.tensor([-1, -1, -0.5, -0.5, -0.05, -0.1]),
     # 'u_range': (
@@ -71,6 +71,8 @@ if __name__ == '__main__':
     parser.add_argument('--num_models', type=int, default=1)
     args = parser.parse_args()
 
+    args.eval_open_loop = True
+
     # Train models
     if args.train:
         os.makedirs('./models/', exist_ok=True)
@@ -86,24 +88,24 @@ if __name__ == '__main__':
         print('-'*10, 'Open-loop evaluation', '-'*10)
 
         # # On nominal flat maps
-        # exp_utils.eval_open_loop('nominal', None, quad_params, open_loop_sim_params)
+        exp_utils.eval_open_loop('nominal', None, quad_params, open_loop_sim_params)
 
-        # # On true flat maps
-        # class TrueResidualWrapper(nn.Module):
-        #     def __init__(self, quad_params):
-        #         super().__init__()
-        #         self.true_dynamics = PlanarQuadDynamicsWithDrag(**quad_params)
+        # On true flat maps
+        class TrueResidualWrapper(nn.Module):
+            def __init__(self, quad_params):
+                super().__init__()
+                self.true_dynamics = PlanarQuadDynamicsWithDrag(**quad_params)
 
-        #     def forward(self, x):
-        #         res = torch.cat((torch.zeros_like(x), torch.zeros_like(x[..., :2])), dim=-1)
-        #         res[..., 2:4] += self.true_dynamics.drag(
-        #             torch.cat((x, torch.zeros_like(x[..., :2])), dim=-1)
-        #         )
-        #         return res
+            def forward(self, x):
+                res = torch.cat((torch.zeros_like(x), torch.zeros_like(x[..., :2])), dim=-1)
+                res[..., 2:4] += self.true_dynamics.drag(
+                    torch.cat((x, torch.zeros_like(x[..., :2])), dim=-1)
+                )
+                return res
 
-        # exp_utils.eval_open_loop(
-        #     'true', TrueResidualWrapper(quad_params), quad_params, open_loop_sim_params
-        # )
+        exp_utils.eval_open_loop(
+            'true', TrueResidualWrapper(quad_params), quad_params, open_loop_sim_params
+        )
 
         # On learned residual models
         for seed in range(args.num_models):

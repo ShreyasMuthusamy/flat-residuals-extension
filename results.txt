@@ -1,0 +1,12 @@
+Small NN Results
+
+---------- Open-loop evaluation ----------
+Tracking error for ellipse trajectory with nominal: 0.31231969594955444
+Tracking error for lem trajectory with nominal: 0.2382323145866394
+Tracking error for ellipse trajectory with true: 6.780032322240004e-07
+Tracking error for lem trajectory with true: 4.357727448223159e-06
+Tracking error for ellipse trajectory with learned_0: 0.17444677650928497
+Tracking error for lem trajectory with learned_0: 0.12466640025377274
+---------- Closed-loop evaluation ----------
+Tracking error with learned flat controller on ellipse trajectory: 0.02875, control effort: 9.81005
+Tracking error with nominal flat controller on ellipse trajectory: 0.04954, control effort: 9.8094
