@@ -4,7 +4,7 @@ import torch
 from controller.dynamics import PlanarQuadDynamicsWithDrag, PlanarQuadDynamics
 import utils.sim_utils as sim_utils
 import learning.train as train
-from learning.models import FullResidualModel, DeepFullResidualModel, FlatResidualModel
+from learning.models import FullResidualModel, FlatResidualModel
 import controller.nmpc as nmpc
 import utils.eval_utils as eval_utils
 from utils.eval_utils import generate_ellipse_reference, generate_lemniscate_reference
@@ -14,11 +14,11 @@ import utils.control_utils as control_utils
 import scipy.linalg as spl
 
 
-def train_models(exp_seed, quad_params, data_params, training_params):
+def train_models(exp_seed, quad_params, data_params, training_params, param, dist):
     _ = torch.manual_seed(exp_seed)
 
     # Define the dynamics of the system
-    true_dynamics = PlanarQuadDynamicsWithDrag(**quad_params)
+    true_dynamics = PlanarQuadDynamicsWithDrag(**quad_params, dist=dist)
     nominal_dynamics = PlanarQuadDynamics(**quad_params)
 
     # Open-loop data collection: Sample trajectories all over the workspace
@@ -34,7 +34,8 @@ def train_models(exp_seed, quad_params, data_params, training_params):
     )
 
     # Train a neural network model
-    residual_model = FullResidualModel(hidden_dims=training_params['hidden_dims'])
+    param = FlatResidualModel if param == 'flat' else FullResidualModel
+    residual_model = param(hidden_dims=training_params['hidden_dims'])
     device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
     residual_model = train.train_finite_difference(
         x_samples, u_samples, data_params['dt'], nominal_dynamics.dot_fn, residual_model,
@@ -53,8 +54,8 @@ def load_model(model_path, training_params):
     return residual_model
 
 
-def eval_open_loop(name, residual_model, quad_params, sim_params):
-    true_dynamics = PlanarQuadDynamicsWithDrag(**quad_params)
+def eval_open_loop(name, residual_model, quad_params, sim_params, dist):
+    true_dynamics = PlanarQuadDynamicsWithDrag(**quad_params, dist=dist)
     ctrl = flatness.FlatQuadrotorController(
         residual_model, quad_params, torch.zeros((1, 10)), None, None, sim_params['dt']
     )
@@ -116,9 +117,9 @@ def eval_open_loop(name, residual_model, quad_params, sim_params):
         )
 
 
-def eval_closed_loop(seed, model_path, quad_params, training_params, sim_params):
+def eval_closed_loop(seed, model_path, quad_params, training_params, sim_params, dist):
     # Define the dynamics
-    true_dynamics = PlanarQuadDynamicsWithDrag(**quad_params)
+    true_dynamics = PlanarQuadDynamicsWithDrag(**quad_params, dist=dist)
 
     # Load the residual model
     residual_model = load_model(model_path, training_params)

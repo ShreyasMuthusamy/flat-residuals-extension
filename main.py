@@ -63,6 +63,8 @@ closed_loop_sim_params = {
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
+    parser.add_argument('--parametrization', type=str, required=True, choices=['flat', 'fcnn'])
+    parser.add_argument('--disturbance', type=int, required=True, choices=[1, 2, 3])
     parser.add_argument('--train', action="store_true")
     parser.add_argument('--eval_open_loop', action="store_true")
     parser.add_argument('--eval_closed_loop', action="store_true")
@@ -73,7 +75,14 @@ if __name__ == '__main__':
     if args.train:
         os.makedirs('./models/', exist_ok=True)
         for seed in range(args.num_models):
-            exp_utils.train_models(seed, quad_params, data_params, training_params)
+            exp_utils.train_models(
+                seed,
+                quad_params,
+                data_params,
+                training_params,
+                args.parametrization,
+                args.disturbance
+            )
         print('')
 
     ########################
@@ -84,7 +93,7 @@ if __name__ == '__main__':
         print('-'*10, 'Open-loop evaluation', '-'*10)
 
         # # On nominal flat maps
-        exp_utils.eval_open_loop('nominal', None, quad_params, open_loop_sim_params)
+        exp_utils.eval_open_loop('nominal', None, quad_params, open_loop_sim_params, args.disturbance)
 
         # On true flat maps
         class TrueResidualWrapper(nn.Module):
@@ -94,14 +103,15 @@ if __name__ == '__main__':
 
             def forward(self, x):
                 res = torch.cat((torch.zeros_like(x), torch.zeros_like(x[..., :2])), dim=-1)
-                res[..., 0:2] += -0.1 * x[..., 2:4]
+                if args.disturbance == 3:
+                    res[..., 0:2] += -0.1 * x[..., 2:4]
                 res[..., 2:4] += self.true_dynamics.drag(
                     torch.cat((x, torch.zeros_like(x[..., :2])), dim=-1)
                 )
                 return res
 
         exp_utils.eval_open_loop(
-            'true', TrueResidualWrapper(quad_params), quad_params, open_loop_sim_params
+            'true', TrueResidualWrapper(quad_params), quad_params, open_loop_sim_params, args.disturbance
         )
 
         # On learned residual models
@@ -109,7 +119,7 @@ if __name__ == '__main__':
             model_path = f'models/residual_model_{seed}.pth'
             residual_model = exp_utils.load_model(model_path, training_params)
             exp_utils.eval_open_loop(
-                f'learned_{seed}', residual_model, quad_params, open_loop_sim_params
+                f'learned_{seed}', residual_model, quad_params, open_loop_sim_params, args.disturbance
             )
 
     # Closed-loop evaluation
@@ -122,5 +132,6 @@ if __name__ == '__main__':
                 f'models/residual_model_{seed}.pth',
                 quad_params,
                 training_params,
-                closed_loop_sim_params
+                closed_loop_sim_params,
+                args.disturbance
             )

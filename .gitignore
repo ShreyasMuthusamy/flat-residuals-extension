@@ -8,8 +8,9 @@ venv/
 *.pth
 *.npy
 
-# Images and Videos
+# Images, Videos, and Other Results
 *.png
 *.gif
+*.txt
 
 debug.ipynb

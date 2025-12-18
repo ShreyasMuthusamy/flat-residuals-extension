@@ -1,7 +1,7 @@
 import casadi as cs
 import numpy as np
 from torch import nn
-from learning.models import FullResidualModel, FlatResidualModel, DeepFullResidualModel
+from learning.models import FullResidualModel, FlatResidualModel
 
 
 def relu(x: cs.MX) -> cs.MX:
@@ -118,7 +118,7 @@ class PlanarQuadrotorMPC:
         if residual_model is None:
             self.nn_casadi = None
         else:
-            if isinstance(residual_model, FullResidualModel) or isinstance(residual_model, DeepFullResidualModel):
+            if isinstance(residual_model, FullResidualModel):
                 self.nn_casadi, self.nn_in_dim = full_2_casadi(
                     residual_model.model,
                     residual_model.y_mean.numpy(),

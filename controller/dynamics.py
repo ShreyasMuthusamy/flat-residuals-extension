@@ -41,22 +41,28 @@ class PlanarQuadDynamics(Dynamics):
 class PlanarQuadDynamicsWithDrag(PlanarQuadDynamics):
     """Dynamics of the 2D quadrotor with drag (squared air speed)"""
 
-    def __init__(self, m_quad=1.0, I_quad=0.1, g=9.81, F_max=10.0, tau_max=0.5, C_pd=[0.1, 0.1], C_rdx=0.1, **kwargs):
+    def __init__(self, m_quad=1.0, I_quad=0.1, g=9.81, F_max=10.0, tau_max=0.5, C_pd=[0.1, 0.1], C_rdx=0.1, dist=1, **kwargs):
         """Cd: drag coefficient"""
         super().__init__(m_quad, I_quad, g, F_max, tau_max)
         self.C_pd = torch.tensor(C_pd)
         self.C_rd = torch.tensor([C_rdx, 0])
+        self.exp12 = True if dist == 2 else False
+        self.exp34 = True if dist == 3 else False
 
     def drag(self, x):
         assert x.shape[-1] == 6, "Input should be a batch of states"
         drag_para = -self.C_pd * torch.linalg.vector_norm(x[..., 2:4], dim=-1, keepdim=True) * x[..., 2:4]
         drag_rotor = -self.C_rd * x[..., 2:4]
-        # angle = x[..., 5].unsqueeze(-1)
-        # non_tril = -0.5 * torch.cat([torch.cos(angle), torch.sin(angle)], axis=-1)
-        return drag_para + drag_rotor # + non_tril
+        if self.exp12:
+            angle = x[..., 5].unsqueeze(-1)
+            non_tril = -0.5 * torch.cat([torch.cos(angle), torch.sin(angle)], axis=-1)
+            return drag_para + drag_rotor + non_tril
+        else:
+            return drag_para + drag_rotor
 
     def dot_fn(self, x, u):
         x_dot, u_saturated = super().dot_fn(x, u)    # nominal dynamics
-        x_dot[:, 0:2] += -0.1 * x[:, 2:4]
+        if self.exp34:
+            x_dot[:, 0:2] += -0.1 * x[:, 2:4]
         x_dot[:, 2:4] += self.drag(x)   # add drag
         return x_dot, u_saturated
