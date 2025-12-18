@@ -11,6 +11,6 @@ venv/
 # Images, Videos, and Other Results
 *.png
 *.gif
-*.txt
+results.txt
 
 debug.ipynb
