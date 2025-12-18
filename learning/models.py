@@ -33,40 +33,6 @@ class FullResidualModel(nn.Module):
             self.y_mean[:] = y_mean
             self.y_std[:] = y_std
 
-class DeepFullResidualModel(nn.Module):
-    """A fully connected neural network model for the residual 2d quad dynamics"""
-
-    def __init__(self, hidden_dims=[16], activation=nn.GELU):
-        super(FullResidualModel, self).__init__()
-        input_dim, output_dim = 8, 6
-
-        self.model = nn.Sequential(
-            nn.Linear(input_dim, 32, bias=True),
-            nn.ReLU(),
-            nn.Linear(32, 48),
-            nn.ReLU(),
-            nn.Linear(48, output_dim)
-        )
-
-        self.y_mean = nn.Parameter(torch.zeros(6), requires_grad=False)
-        self.y_std = nn.Parameter(torch.zeros(6), requires_grad=False)
-
-    def forward(self, xu):
-        if xu.size(-1) == 4:
-            xu = torch.cat([xu, torch.zeros_like(xu)], dim=-1)
-
-        out = self.model(xu)
-
-        if self.y_mean is not None:
-            out = out * self.y_std + self.y_mean
-        return out
-
-    def set_mean_std(self, y_mean, y_std):
-        with torch.no_grad():
-            self.y_mean[:] = y_mean
-            self.y_std[:] = y_std
-
-
 class FlatResidualModel(nn.Module):
     """A NN-parameterized flatness-preserving residual dynamics model.
     Can only accomodate disturbance as a function of position and velocity."""

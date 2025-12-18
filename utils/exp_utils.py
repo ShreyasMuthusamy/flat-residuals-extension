@@ -4,7 +4,7 @@ import torch
 from controller.dynamics import PlanarQuadDynamicsWithDrag, PlanarQuadDynamics
 import utils.sim_utils as sim_utils
 import learning.train as train
-from learning.models import FullResidualModel, FlatResidualModel
+from learning.models import FullResidualModel, DeepFullResidualModel, FlatResidualModel
 import controller.nmpc as nmpc
 import utils.eval_utils as eval_utils
 from utils.eval_utils import generate_ellipse_reference, generate_lemniscate_reference

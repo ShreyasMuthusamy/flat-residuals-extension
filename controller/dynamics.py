@@ -51,9 +51,12 @@ class PlanarQuadDynamicsWithDrag(PlanarQuadDynamics):
         assert x.shape[-1] == 6, "Input should be a batch of states"
         drag_para = -self.C_pd * torch.linalg.vector_norm(x[..., 2:4], dim=-1, keepdim=True) * x[..., 2:4]
         drag_rotor = -self.C_rd * x[..., 2:4]
-        return drag_para + drag_rotor
+        # angle = x[..., 5].unsqueeze(-1)
+        # non_tril = -0.5 * torch.cat([torch.cos(angle), torch.sin(angle)], axis=-1)
+        return drag_para + drag_rotor # + non_tril
 
     def dot_fn(self, x, u):
         x_dot, u_saturated = super().dot_fn(x, u)    # nominal dynamics
+        x_dot[:, 0:2] += -0.1 * x[:, 2:4]
         x_dot[:, 2:4] += self.drag(x)   # add drag
         return x_dot, u_saturated

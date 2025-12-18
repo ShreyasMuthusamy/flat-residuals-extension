@@ -1,6 +1,7 @@
 import casadi as cs
 import numpy as np
 from torch import nn
+from learning.models import FullResidualModel, FlatResidualModel, DeepFullResidualModel
 
 
 def relu(x: cs.MX) -> cs.MX:
@@ -14,26 +15,58 @@ def gelu(x: cs.MX, approximate: str = "none") -> cs.MX:
     return 0.5 * x * (1 + cs.tanh(cs.sqrt(2 / cs.pi) * (x + 0.044715 * x3)))
 
 
-def torch_nn_2_casadi(model: nn.ModuleList, y_mean: np.ndarray, y_std: np.ndarray) -> cs.Function:
+def full_2_casadi(model: nn.Module, y_mean: np.ndarray, y_std: np.ndarray) -> cs.Function:
     """Convert a PyTorch neural network to a CasADi function."""
+    assert isinstance(model, nn.Module), "Input must be a PyTorch nn.Module"
+
+    param_ls = []
+    for param in model.state_dict().values():
+        param_ls.append(param.detach().cpu().numpy())
+    x_dim = param_ls[0].shape[1]
+    assert x_dim == 8 or x_dim == 2, (
+        "We currently only support full (x, u) or flat (y) parameterization for the "
+        "residual dynamics"
+    )
+
+    x = cs.MX.sym("x", x_dim)
+    out = x
+    param_idx = 0
+    for layer in model:
+        if isinstance(layer, nn.Linear):
+            weight, bias = param_ls[param_idx], param_ls[param_idx + 1]
+            out = cs.mtimes(weight, out) + bias
+            param_idx += 2
+        elif isinstance(layer, nn.Tanh):
+            out = cs.tanh(out)
+        elif isinstance(layer, nn.ReLU):
+            out = relu(out)
+        elif isinstance(layer, nn.GELU):
+            out = gelu(out)
+        else:
+            raise NotImplementedError(f"Unsupported layer type: {type(layer)}")
+    if out.shape[0] == 4:
+        out = cs.vertcat(cs.MX.zeros(2, 1), out)
+    if y_mean is not None:
+        out = out * y_std + y_mean
+    return cs.Function("nn_casadi", [x], [out]), x_dim
+
+
+def flat_2_casadi(model: nn.ModuleList, y_mean: np.ndarray, y_std: np.ndarray) -> cs.Function:
+    """Convert a flat residual network to a CasADi function."""
     assert isinstance(model, nn.ModuleList), "Input must be a PyTorch nn.ModuleList"
 
     params = []
-    for _ in range(len(model)):
+    for i in range(len(model)):
         param_ls = []
-        for param in model.state_dict().values():
+        for param in model[i].state_dict().values():
             param_ls.append(param.detach().cpu().numpy())
-        x_dim = param_ls[0].shape[1]
-        assert x_dim == 8 or x_dim == 2, (
-            "We currently only support full (x, u) or flat (y) parameterization for the "
-            "residual dynamics"
-        )
         params.append(param_ls)
 
+    x_dim = 8
     x = cs.MX.sym("x", x_dim)
     outs = []
     for i, param_ls in enumerate(params):
-        out = x
+        out = x[:2*(i+1)]
         param_idx = 0
         for layer in model[i]:
             if isinstance(layer, nn.Linear):
@@ -58,7 +91,7 @@ def torch_nn_2_casadi(model: nn.ModuleList, y_mean: np.ndarray, y_std: np.ndarra
 class PlanarQuadrotorMPC:
     def __init__(
         self,
-        residual_model,     # ResidualModel
+        residual_model: nn.Module,     # ResidualModel
         quad_params: dict,
         dt: float,
         reference: np.ndarray,
@@ -85,11 +118,18 @@ class PlanarQuadrotorMPC:
         if residual_model is None:
             self.nn_casadi = None
         else:
-            self.nn_casadi, self.nn_in_dim = torch_nn_2_casadi(
-                residual_model.subresiduals,
-                residual_model.y_mean.numpy(),
-                residual_model.y_std.numpy()
-            )
+            if isinstance(residual_model, FullResidualModel) or isinstance(residual_model, DeepFullResidualModel):
+                self.nn_casadi, self.nn_in_dim = full_2_casadi(
+                    residual_model.model,
+                    residual_model.y_mean.numpy(),
+                    residual_model.y_std.numpy()
+                )
+            elif isinstance(residual_model, FlatResidualModel):
+                self.nn_casadi, self.nn_in_dim = flat_2_casadi(
+                    residual_model.subresiduals,
+                    residual_model.y_mean.numpy(),
+                    residual_model.y_std.numpy()
+                )
         self._set_dynamics()
         self.init_mpc = 0
         self.prev_sol_x = np.zeros((1,))

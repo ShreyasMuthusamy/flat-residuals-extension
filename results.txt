@@ -1,12 +1,49 @@
-Small NN Results
+Results with Learned Flat Residuals
 
 ---------- Open-loop evaluation ----------
 Tracking error for ellipse trajectory with nominal: 0.31231969594955444
 Tracking error for lem trajectory with nominal: 0.2382323145866394
-Tracking error for ellipse trajectory with true: 6.780032322240004e-07
+Tracking error for ellipse trajectory with true: 8.051380859797064e-07
 Tracking error for lem trajectory with true: 4.357727448223159e-06
-Tracking error for ellipse trajectory with learned_0: 0.17444677650928497
-Tracking error for lem trajectory with learned_0: 0.12466640025377274
+Tracking error for ellipse trajectory with learned_0: 0.04337779060006142
+Tracking error for lem trajectory with learned_0: 0.0438787005841732
+---------- Closed-loop evaluation ----------
+Tracking error with learned flat controller on ellipse trajectory: 0.00613, control effort: 9.81096
+Tracking error with nominal flat controller on ellipse trajectory: 0.04948, control effort: 9.80942
+Tracking error with NMPC controller on ellipse trajectory: 0.00802, control effort: 9.81063
+Tracking error with learned flat controller on lem trajectory: 0.00604, control effort: 9.81333
+Tracking error with nominal flat controller on lem trajectory: 0.02700, control effort: 9.81239
+Tracking error with NMPC controller on lem trajectory: 0.00716, control effort: 9.81279
+
+Results with Learned FCNN Residuals
+
+---------- Open-loop evaluation ----------
+Tracking error for ellipse trajectory with nominal: 0.31231969594955444
+Tracking error for lem trajectory with nominal: 0.2382323145866394
+Tracking error for ellipse trajectory with true: 8.051380859797064e-07
+Tracking error for lem trajectory with true: 4.357727448223159e-06
+Tracking error for ellipse trajectory with learned_0: 0.17444612085819244
+Tracking error for lem trajectory with learned_0: 0.1246669664978981
 ---------- Closed-loop evaluation ----------
 Tracking error with learned flat controller on ellipse trajectory: 0.02875, control effort: 9.81005
-Tracking error with nominal flat controller on ellipse trajectory: 0.04954, control effort: 9.8094
+Tracking error with nominal flat controller on ellipse trajectory: 0.04954, control effort: 9.80942
+Tracking error with NMPC controller on ellipse trajectory: 0.00639, control effort: 9.81068
+Tracking error with learned flat controller on lem trajectory: 0.01302, control effort: 9.81276
+Tracking error with nominal flat controller on lem trajectory: 0.02730, control effort: 9.81238
+Tracking error with NMPC controller on lem trajectory: 0.00642, control effort: 9.81284
+
+FCNN Residuals with Second Disturbance
+---------- Open-loop evaluation ----------
+Tracking error for ellipse trajectory with nominal: 0.3917985260486603
+Tracking error for lem trajectory with nominal: 0.31513914465904236
+Tracking error for ellipse trajectory with true: 0.12732349336147308
+Tracking error for lem trajectory with true: 0.10207872837781906
+Tracking error for ellipse trajectory with learned_0: 0.2752157151699066
+Tracking error for lem trajectory with learned_0: 0.21079961955547333
+---------- Closed-loop evaluation ----------
+Tracking error with learned flat controller on ellipse trajectory: 0.12864, control effort: 9.81012
+Tracking error with nominal flat controller on ellipse trajectory: 0.14781, control effort: 9.80946
+Tracking error with NMPC controller on ellipse trajectory: 0.10742, control effort: 9.81084
+Tracking error with learned flat controller on lem trajectory: 0.07917, control effort: 9.81217
+Tracking error with nominal flat controller on lem trajectory: 0.09208, control effort: 9.81182
+Tracking error with NMPC controller on lem trajectory: 0.08021, control effort: 9.81288
